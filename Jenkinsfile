@@ -1,17 +1,16 @@
 pipeline{
     agent any
-    tools {
-        jdk 'jdk17'
-        nodejs 'node18'
+    tools{
+        jdk 'jdk-17'
+        nodejs 'nodejs'
     }
     environment {
         SCANNER_HOME=tool 'sonar-scanner'
     }
     stages {
-        stage ("Git Pull"){
+        stage('Checkout from Git'){
             steps{
-                git branch: 'main', url: 'https://github.com/Aj7Ay/Uptime-kuma.git'
-            }
+                git branch: 'main', url: 'https://github.com/SomasekharSunkari/Uptime-kuma2.0.git'            }
         }
         stage('Install Dependencies') {
             steps {
@@ -21,43 +20,43 @@ pipeline{
         stage("Sonarqube Analysis "){
             steps{
                 withSonarQubeEnv('sonar-server') {
-                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Chatbot \
-                    -Dsonar.projectKey=Chatbot '''
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=uptime \
+                    -Dsonar.projectKey=uptime '''
                 }
             }
         }
-        stage('Sonar-quality-gate') {
-            steps {
-                script{
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+        stage("quality gate"){
+           steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
                 }
             }
         }
         stage('OWASP FS SCAN') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'dp-check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
         stage('TRIVY FS SCAN') {
             steps {
-                sh "trivy fs . > trivyfs.json"
+                sh "trivy fs . > trivyfs_uptime.json"
             }
         }
-        stage("Docker Build & Push"){
+        stage("Docker Build and  Push"){
             steps{
                 script{
-                   withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){   
+                   withDockerRegistry(credentialsId: 'dockerhub-cred', toolName: 'docker'){
                        sh "docker build -t uptime ."
-                       sh "docker tag uptime sevenajay/uptime:latest "
-                       sh "docker push sevenajay/uptime:latest "
+                       sh "docker tag uptime sunkarisomasekhar/uptime:latest "
+                       sh "docker push sunkarisomasekhar/uptime:latest "
                     }
                 }
             }
         }
         stage("TRIVY"){
             steps{
-                sh "trivy image sevenajay/uptime:latest > trivy.json" 
+                sh "trivy image sunkarisomasekhar/uptime:latest > trivy_uptime.json"
             }
         }
         stage ("Remove container") {
@@ -68,8 +67,8 @@ pipeline{
         }
         stage('Deploy to container'){
             steps{
-                sh 'docker run -d --name uptime -v /var/run/docker.sock:/var/run/docker.sock -p 3001:3001 sevenajay/uptime:latest'
+                sh 'docker run -d --name uptime -v /var/run/docker.sock:/var/run/docker.sock -p 3001:3001 sunkarisomasekhar/uptime:latest'
             }
         }
     }
-}
+    }
